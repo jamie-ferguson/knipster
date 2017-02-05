@@ -18,6 +18,7 @@ class User extends Eloquent {
 			->where('email', '=', $email)
 			->get();
 
+
 		if(!empty($email_id[0]->id)){
 			return array('error' => 'Email address already exists.');
 		}
@@ -36,6 +37,7 @@ class User extends Eloquent {
 
 		return array('User ID' => $user_id);
 	}
+
 
 	public function updateUser($id, $first_name, $last_name, $gender, $country, $email){
 		// check if the user exists.
@@ -73,6 +75,22 @@ class User extends Eloquent {
 		return array('Affected rows' => $affectedRows);
 	}
 
+
+	public function deleteUser($user_id){
+		// delete the user's transactions.
+		$user = DB::table('transactions')
+			->where('user_id', '=', $user_id)
+			->delete();
+
+		// delete the user.
+		$user = DB::table('users')
+			->where('id', '=', $user_id)
+			->delete();
+
+		return array('Deleted user' => $user_id);
+	}
+
+
 	public function addTransaction($user_id, $type, $value){
 
 		$cash_value = 0;
@@ -86,6 +104,7 @@ class User extends Eloquent {
 			->select('id', 'cash_value', 'bonus_value', 'bonus_parameter', 'no_deposits', 'no_withdrawals')
 			->where('id', '=', $user_id)
 			->get();
+
 
 		if(empty($user[0]->id)){
 			return array('error' => 'User does not exist.');
@@ -106,49 +125,51 @@ class User extends Eloquent {
 			$value = -1 * $value;
 		}
 
-		// add the transaction record.
-		$transaction_id = DB::table('transactions')->insertGetId(
-			array(	'user_id' 	=> $user_id,
-					'type' 		=> $type,
-					'value' 	=> $value,
-				)
-		);
 
-		$bonus = 0;
-		// add a bonus transaction record if this is a deposit and the deposit number is a factor of three.
-		echo "type = " . $type . PHP_EOL;
-		$rem = $deposit_no % 3;
-		echo "deposit_no % 3 = " . $rem . PHP_EOL;
-		if($type == 'deposit' && $deposit_no % 3 == 2){
-			$bonus = $value * $bonus_parameter/100;
+		// this transaction will be rolled back if any one statement fails.
+		$transaction_id = DB::transaction(function() use ($user_id, $type, $value, $cash_value, $bonus_value, $bonus_parameter, $deposit_no, $withdrawal_no){
+
+			// add the transaction record.
 			$transaction_id = DB::table('transactions')->insertGetId(
 				array(	'user_id' 	=> $user_id,
-						'type' 		=> 'bonus',
-						'value' 	=> $bonus,
+						'type' 		=> $type,
+						'value' 	=> $value,
 					)
 			);
-		}
 
-		// calculate the updated values for the user
-		$new_cash_value = $cash_value + $value;
-		$new_bonus_value = $bonus_value + $bonus;
-		$new_no_deposits = $type == 'deposit' ? ++$deposit_no : $deposit_no;
-		$new_no_withdrawals = $type == 'withdraw' ? ++$withdrawal_no : $withdrawal_no;
+			$bonus = 0;
+			// add a bonus transaction record if this is a deposit and the deposit number is a factor of three.
+			$rem = $deposit_no % 3;
+			if($type == 'deposit' && $deposit_no % 3 == 2){
+				$bonus = $value * $bonus_parameter/100;
+				$transaction_id = DB::table('transactions')->insertGetId(
+					array(	'user_id' 	=> $user_id,
+							'type' 		=> 'bonus',
+							'value' 	=> $bonus,
+						)
+				);
+			}
 
-		echo "new_cash_value = " . $new_cash_value . PHP_EOL;
-		echo "new_bonus_value = " . $new_bonus_value . PHP_EOL;
-		echo "new_no_deposits = " . $new_no_deposits . PHP_EOL;
-		echo "new_no_withdrawals = " . $new_no_withdrawals . PHP_EOL;
+			// calculate the updated values for the user
+			$new_cash_value = $cash_value + $value;
+			$new_bonus_value = $bonus_value + $bonus;
+			$new_no_deposits = $type == 'deposit' ? ++$deposit_no : $deposit_no;
+			$new_no_withdrawals = $type == 'withdraw' ? ++$withdrawal_no : $withdrawal_no;
 
-		$affectedRows = DB::table('users')
-			->where('id', '=', $user_id)
-			->update(
-				    array(	'cash_value' 		=> $new_cash_value,
-				    		'bonus_value' 		=> $new_bonus_value,
-				    		'no_deposits' 		=> $new_no_deposits,
-				    		'no_withdrawals' 	=> $new_no_withdrawals
-				    	)
-		);
+			$affectedRows = DB::table('users')
+				->where('id', '=', $user_id)
+				->update(
+					    array(	'cash_value' 		=> $new_cash_value,
+					    		'bonus_value' 		=> $new_bonus_value,
+					    		'no_deposits' 		=> $new_no_deposits,
+					    		'no_withdrawals' 	=> $new_no_withdrawals
+					    	)
+			);
+
+			return $transaction_id;
+
+		});
+
 
 		return array('Transaction ID' => $transaction_id);
 	}
@@ -156,11 +177,11 @@ class User extends Eloquent {
 
 	public function getTransactions($start = null, $end = null){
 
+		// default start date is seven days ago.
 		$default = date("Y-m-d", strtotime("-1 week"));
 		$today = date("Y-m-d");
 		$start_date = !empty($start) ? $start : $default;
-		$end_date = !empty($end) ? $end : 'NOW()';
-
+		$end_date = !empty($end) ? $end : $today;
 
 		$sql = "SELECT 	u.country_code AS 'Country',
 						COUNT(DISTINCT(u.email)) AS 'Unique Customers',
@@ -182,8 +203,6 @@ class User extends Eloquent {
 
 		return $transactions;
 	}
-
-
 
 
 

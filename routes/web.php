@@ -17,6 +17,7 @@ Route::get('/', function () {
 
 Route::post('add-user', 'UserController@addUser');
 Route::post('update-user', 'UserController@updateUser');
+Route::post('delete-user', 'UserController@deleteUser');
 
 Route::post('deposit', 'UserController@depositCash');
 Route::post('withdraw', 'UserController@withdrawCash');
