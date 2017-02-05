@@ -178,10 +178,10 @@ class User extends Eloquent {
 	public function getTransactions($start = null, $end = null){
 
 		// default start date is seven days ago.
-		$default = date("Y-m-d", strtotime("-1 week"));
-		$today = date("Y-m-d");
-		$start_date = !empty($start) ? $start : $default;
-		$end_date = !empty($end) ? $end : $today;
+		$default = date("Y-m-d 00:00:00", strtotime("-1 week"));
+		$today = date("Y-m-d 23:59:59");
+		$start_date = !empty($start) ? $start . " 00:00:00" : $default;
+		$end_date = !empty($end) ? $end . " 23:59:59": $today;
 
 		$sql = "SELECT 	u.country_code AS 'Country',
 						COUNT(DISTINCT(u.email)) AS 'Unique Customers',
@@ -199,7 +199,6 @@ class User extends Eloquent {
 		];
 
 		$transactions = DB::select($sql, $params);
-
 
 		return $transactions;
 	}
