@@ -1,3 +1,4 @@
+```text
 ABOUT
 ======
 This application creates 6 endpoints which can be used to POST parameters in JSON formant and returns valid JSON based on whether the request was successful or not.
@@ -8,7 +9,6 @@ delete-user
 deposit
 withdraw
 report
-
 
 PLATFORM
 =========
@@ -165,4 +165,4 @@ NOTE: THESE SHOULD RETURN ERROR MESSAGES
 
 # curl -X POST -H 'Content-Type: application/json' -d '{"id":"44","first_name":"Alpha044","last_name":"Beta4","gender":"F","country":"IT","email":"test20@gmail.com"}' http://localhost:8888/knipster/public/update-user
 {"error":"User does not exist."}
-
+```
